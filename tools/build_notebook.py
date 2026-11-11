@@ -1,6 +1,6 @@
 """imgcheck 소스를 셀 하나에 모두 넣은 단독 실행 노트북을 만든다.
 
-사용법: python tools/build_notebook.py . notebooks/imgcheck_folder.ipynb
+사용법: python tools/build_notebook.py . notebooks/image_tamper_check.ipynb
 """
 
 import json

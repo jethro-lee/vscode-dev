@@ -32,7 +32,7 @@ python check.py 계약서.docx 현장사진.jpg -o 결과.html --json 결과.jso
 
 ## Jupyter 노트북으로 폴더 통째로 검사
 
-`notebooks/imgcheck_folder.ipynb` 는 **코드 셀 하나**에 모든 로직이 들어 있어, 다른 파일 없이 한 번 실행으로 끝납니다.
+`notebooks/image_tamper_check.ipynb` 는 **코드 셀 하나**에 모든 로직이 들어 있어, 다른 파일 없이 한 번 실행으로 끝납니다.
 
 1. 노트북을 열고 셀 맨 위 `DATA_DIR = r"D:\data"` 를 검사할 폴더로 지정
 2. 셀 실행 (Shift+Enter) → 필요한 패키지가 없으면 자동 설치
@@ -40,7 +40,7 @@ python check.py 계약서.docx 현장사진.jpg -o 결과.html --json 결과.jso
    `imgcheck_report.html`·`imgcheck_result.csv` 를 같은 폴더에 저장
    (지원하지 않는 파일은 표에 '검사 불가'로 표시)
 
-노트북은 `python tools/build_notebook.py . notebooks/imgcheck_folder.ipynb` 로 `imgcheck/` 소스에서 다시 만들 수 있습니다.
+노트북은 `python tools/build_notebook.py . notebooks/image_tamper_check.ipynb` 로 `imgcheck/` 소스에서 다시 만들 수 있습니다.
 
 ## 검사 항목
 
