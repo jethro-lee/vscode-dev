@@ -14,7 +14,7 @@ from PIL import Image, ImageChops
 from ..models import CheckResult, ImageItem, Level
 from ._util import block_map, heatmap_overlay, largest_cluster, outlier_ratio, to_rgb
 
-BLOCK = 16
+ELA_BLOCK = 16
 QUALITY = 90
 
 
@@ -27,10 +27,10 @@ def check_ela(item: ImageItem, img: Image.Image) -> CheckResult:
     resaved = Image.open(io.BytesIO(buf.getvalue()))
     diff = np.asarray(ImageChops.difference(rgb, resaved), dtype=np.float32).max(axis=2)
 
-    blocks = block_map(diff, BLOCK)
+    blocks = block_map(diff, ELA_BLOCK)
     # 완전히 평평한 영역(하늘, 흰 배경)은 원래 차이가 작으므로 판단에서 뺀다
     gray = np.asarray(rgb.convert("L"), dtype=np.float32)
-    texture = block_map(np.abs(np.diff(gray, axis=1, append=gray[:, -1:])), BLOCK)
+    texture = block_map(np.abs(np.diff(gray, axis=1, append=gray[:, -1:])), ELA_BLOCK)
     mask = texture > 1.0
 
     ratio, out = outlier_ratio(blocks, mask, z=5.0)

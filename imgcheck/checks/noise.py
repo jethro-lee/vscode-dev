@@ -13,25 +13,25 @@ from PIL import Image
 from ..models import CheckResult, ImageItem, Level
 from ._util import block_map, heatmap_overlay, largest_cluster, to_rgb
 
-BLOCK = 32
+NOISE_BLOCK = 32
 
 
 def check_noise(item: ImageItem, img: Image.Image) -> CheckResult:
     r = CheckResult("noise", "노이즈 일관성 (합성/덧칠 탐지)")
     rgb = to_rgb(img)
     gray = np.asarray(rgb.convert("L"), dtype=np.float32)
-    if min(gray.shape) < BLOCK * 4:
+    if min(gray.shape) < NOISE_BLOCK * 4:
         r.skipped = "이미지가 너무 작음"
         return r
 
     residual = gray - cv2.medianBlur(gray.astype(np.uint8), 3).astype(np.float32)
-    noise = np.sqrt(block_map(residual ** 2, BLOCK))
+    noise = np.sqrt(block_map(residual ** 2, NOISE_BLOCK))
 
     # 노이즈는 무늬가 많은 곳에서 크게 나오므로, 무늬가 적은(평탄한) 칸끼리만 비교한다
-    bright = block_map(gray, BLOCK)
+    bright = block_map(gray, NOISE_BLOCK)
     smooth = cv2.GaussianBlur(gray, (0, 0), 2.0)
     gx, gy = np.gradient(smooth)
-    structure = block_map(np.hypot(gx, gy), BLOCK)
+    structure = block_map(np.hypot(gx, gy), NOISE_BLOCK)
     valid = (bright > 8) & (bright < 247)
     if valid.sum() < 16:
         r.skipped = "분석할 영역이 부족함"
