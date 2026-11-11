@@ -30,6 +30,16 @@ python check.py 계약서.docx 현장사진.jpg -o 결과.html --json 결과.jso
 - 문서 안의 이미지는 **재압축 없이 원본 바이트 그대로** 꺼내서 분석합니다.
 - 종료 코드: `0` 특이사항 없음, `2` 주의, `3` 의심 (자동화에 활용 가능)
 
+## Jupyter 노트북으로 폴더 통째로 검사
+
+`notebooks/imgcheck_folder.ipynb` 는 설치나 다른 파일 없이 **노트북 하나만으로** 동작합니다.
+
+1. 노트북을 Jupyter에서 열고, 2번 셀의 `DATA_DIR = Path(r"D:\data")` 를 검사할 폴더로 지정
+2. `Run All` 실행 → 요약표, 의심 사진의 표시 그림, `imgcheck_report.html`·`imgcheck_result.csv` 가 생성됨
+3. 특정 사진만 자세히 보려면 `inspect("파일명 일부")`
+
+노트북은 `python tools/build_notebook.py . notebooks/imgcheck_folder.ipynb` 로 `imgcheck/` 소스에서 다시 만들 수 있습니다.
+
 ## 검사 항목
 
 | 검사 | 찾는 것 | 비고 |
