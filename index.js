@@ -9,6 +9,7 @@ const fs = require('fs');
 const axios = require('axios');
 const path = require('path');
 const { addDailySchedule } = require('./dailySchedule');
+const { pgmTools, pgmHandlers, pgmSystemPrompt } = require('./pgmSource');
 
 // 환경변수 누락 체크
 if (!process.env.TELEGRAM_BOT_TOKEN) {
@@ -80,8 +81,19 @@ const localTools = [
             },
             required: ["title", "start_time", "end_time"]
         }
-    }
+    },
+    // PGM 소스(HTML) 검색/열람 도구
+    ...pgmTools
 ];
+
+// 로컬 도구 이름 -> 실행 함수
+const localHandlers = {
+    add_schedule: addSchedule,   // 네이버 캘린더 + 일간 일정표 동시 등록
+    ...pgmHandlers
+};
+
+// 소스 추적처럼 도구를 여러 번 부르는 작업이 끝없이 돌지 않도록 막는 상한
+const MAX_TOOL_ROUNDS = 20;
 
 // 서버 시작 함수
 async function startServer() {
@@ -104,11 +116,15 @@ async function askClaude(promptText) {
     // 한 번의 질문/답변 사이클 동안 시간이 고정되도록 루프 밖에서 계산
     const now = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     const systemPrompt = `현재 한국 시간은 ${now}입니다. 이 시간을 기준으로 '오늘', '내일', '이번 주' 등의 상대적인 날짜를 정확히 계산해서 일정을 등록하세요.
-일정 등록은 add_schedule 도구 하나로 네이버 캘린더와 일간 일정표에 모두 기록됩니다. 도구 결과에 실패가 있으면 어느 쪽이 실패했는지 사용자에게 알려 주세요.`;
+일정 등록은 add_schedule 도구 하나로 네이버 캘린더와 일간 일정표에 모두 기록됩니다. 도구 결과에 실패가 있으면 어느 쪽이 실패했는지 사용자에게 알려 주세요.
+${pgmSystemPrompt}`;
 
-    while (true) {
+    for (let round = 0; ; round++) {
+        if (round >= MAX_TOOL_ROUNDS) {
+            return "⚠️ 확인할 내용이 너무 많아 중간에 멈췄습니다. 프로그램 이름이나 필드를 좀 더 구체적으로 물어봐 주세요.";
+        }
         const response = await anthropic.messages.create({
-            model: "claude-haiku-5-5",
+            model: process.env.CLAUDE_MODEL || "claude-haiku-5-5",
             max_tokens: 4096,
             system: systemPrompt,
             tools: allTools,
@@ -125,9 +141,8 @@ async function askClaude(promptText) {
                     try {
                         let resultData;
 
-                        if (content.name === 'add_schedule') {
-                            // 네이버 캘린더 + 일간 일정표 동시 등록
-                            resultData = await addSchedule(content.input);
+                        if (localHandlers[content.name]) {
+                            resultData = await localHandlers[content.name](content.input);
                         } else {
                             // 옵시디언 파일 탐색 도구 (MCP)
                             resultData = await mcpClient.callTool({
@@ -154,10 +169,29 @@ async function askClaude(promptText) {
             messages.push({ role: "user", content: toolResults });
 
         } else {
-            const textBlock = response.content.find(c => c.type === 'text');
-            return textBlock ? textBlock.text : "요청하신 작업을 완료했습니다.";
+            const text = response.content.filter(c => c.type === 'text').map(c => c.text).join('\n').trim();
+            return text || "요청하신 작업을 완료했습니다.";
         }
     }
+}
+
+// 텔레그램 메시지는 4096자 제한이 있어서, 긴 답변(소스 분석 등)은 줄 단위로 나눠 보냅니다.
+const TELEGRAM_LIMIT = 4000;
+async function replyLong(ctx, text) {
+    const chunks = [];
+    let buf = '';
+    for (const line of text.split('\n')) {
+        let rest = line;
+        while (rest.length > TELEGRAM_LIMIT) {           // 한 줄이 아주 긴 경우
+            if (buf) { chunks.push(buf); buf = ''; }
+            chunks.push(rest.slice(0, TELEGRAM_LIMIT));
+            rest = rest.slice(TELEGRAM_LIMIT);
+        }
+        if (buf && buf.length + rest.length + 1 > TELEGRAM_LIMIT) { chunks.push(buf); buf = ''; }
+        buf += (buf ? '\n' : '') + rest;
+    }
+    if (buf) chunks.push(buf);
+    for (const chunk of chunks) await ctx.reply(chunk);
 }
 
 // 3. 텔레그램 텍스트 메시지 처리
@@ -169,7 +203,7 @@ bot.on(message('text'), async (ctx) => {
 
     try {
         const reply = await askClaude(ctx.message.text);
-        await ctx.reply(reply);
+        await replyLong(ctx, reply);
     } catch (error) {
         console.error(error);
         await ctx.reply("❌ 텍스트 처리 중 오류가 발생했습니다.");
@@ -209,7 +243,7 @@ bot.on(message('voice'), async (ctx) => {
         만약 특정 날짜나 시간이 포함된 일정 관련 내용이라면 add_schedule 도구로 일정을 등록해 줘. (둘 다 해당하면 둘 다 처리해 줘)`;
 
         const reply = await askClaude(prompt);
-        await ctx.reply(reply);
+        await replyLong(ctx, reply);
 
     } catch (error) {
         console.error(error);
